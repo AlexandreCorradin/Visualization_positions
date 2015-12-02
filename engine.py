@@ -13,7 +13,7 @@ from location_service.handlers.POI_user_handler import POIHandler
 
 try:
   logging.getLogger().setLevel(logging.DEBUG)
-  L = np.load('./locations_matrix.npy')
+  L = np.load('../locations_matrix.npy')
   user_date_pairs = set(tuple(line) for line in L[:,(USER_ID, ORDINAL_DATE)])
   sorted_user_date_pairs = sorted(user_date_pairs, key=lambda element: (element[0], element[1]))
   
@@ -30,7 +30,8 @@ try:
   user_date_pairs=list(user_date_pairs) 
   rd.shuffle(user_date_pairs)
   locations_iterator_random = iter(user_date_pairs)
-  POI=jb.load('poi_per_user.jbl')
+  POI=jb.load('../poi_per_user.jbl')
+  POIbis=jb.load('../poi_bis.jbl')
 
 
 except Exception, e:
@@ -49,4 +50,5 @@ finally:
                                                   'sorted_user_date_pairs': sorted_user_date_pairs,
                                                   'date_as_user_func': date_as_user_func,
                                                   'user_list': user_list,
-                                                  'POI':POI })
+                                                  'POI':POI,
+                                                  'POIbis': POIbis})

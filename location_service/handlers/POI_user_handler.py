@@ -15,7 +15,7 @@ class POIHandler(webapp2.RequestHandler):
 
     def __init__(self, request, response):
         self.initialize(request, response)
-        self._poi = self.app.config.get('POI')
+        self._poi = self.app.config.get('POIbis')
 
     def _bad_request(self):
         """
@@ -31,16 +31,8 @@ class POIHandler(webapp2.RequestHandler):
         n_poi=len(dict_poi)
         poi_user=np.zeros((n_poi,4))
         for z in range(n_poi):
-            latlg0=dict_poi[z]['WGS84'][0]
-            for i in range(3):
-                lati=dict_poi[z]['WGS84'][i][0]
-                longi=dict_poi[z]['WGS84'][i][1]
-                if (lati!=latlg0[0] and longi!=latlg0[1]):
-                    latpoi=(lati+latlg0[0])/2.0
-                    longpoi=(longi+latlg0[1])/2.0
-                    accpoi=distance(np.array([[lati,longi]]),np.array([[latlg0[0],latlg0[1]]]))/2.0
-                    break
-            poi_user[z,:]=np.array([z,latpoi,longpoi,accpoi])
+            dict_int=dict_poi[z]
+            poi_user[z,:]=np.array([z,dict_int['center'][0],dict_int['center'][1],dict_int['radius']])
             
         return {"POI": [{"poi_id": poi_id,
                         "lat_poi": lat_poi,
