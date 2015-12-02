@@ -9,6 +9,7 @@ from location_service.handlers.location_handler import LocationHandler
 from location_service.handlers.users_handler import UsersHandler
 from location_service.handlers.date_handler import DateHandler
 from location_service.handlers.date_zone_handler import DateZoneHandler
+from location_service.handlers.POI_user_handler import POIHandler
 
 try:
   logging.getLogger().setLevel(logging.DEBUG)
@@ -39,7 +40,8 @@ finally:
     routes = [('/', LocationHandler),
               ('/users',UsersHandler),
               ('/date',DateHandler),
-              ('/dateingivenzone',DateZoneHandler)]
+              ('/dateingivenzone',DateZoneHandler),
+              ('/POI_given_user',POIHandler)]
     application = webapp2.WSGIApplication(routes=routes,
                                           debug=True,
                                           config={'locations': L,

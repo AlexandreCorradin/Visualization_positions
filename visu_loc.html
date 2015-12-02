@@ -56,12 +56,15 @@
                     $scope.liste_de_date_dans_zone={};
                     $scope.loadUser();
                     $scope.poi_circles = [];
+                    $scope.pointOfInterest_circles=[];
                     $scope.arrowHeadList=[];
                     $scope.arrowList=[];
                     $scope.current_date=0;
                     $scope.current_user_id=0;
                     $scope.loadPoi(0);
                     $scope.legend="";
+                    $scope.arePOIdisplayed=false;
+                    $scope.statusPOIdisplayed=false;
                 }
 
 
@@ -96,6 +99,15 @@
                     $scope.arrowList=[];
                 }
 
+                $scope.cleanPointOfInterest = function() {
+                    for (var circle_num in $scope.pointOfInterest_circles) {
+                        $scope.map.removeLayer($scope.pointOfInterest_circles[circle_num]);
+                    }
+                    $scope.pointOfInterest_circles = [];
+
+                }
+
+
                 $scope.displayPoi = function(data) {
                     var locations = [];
                     for (var poi_num in data['locations']) {
@@ -127,6 +139,32 @@
                     circle.addTo($scope.map);
                     $scope.poi_circles.push(circle);
                 }
+
+                $scope.addPointOfInterest2 = function(poi) {
+                    var mark= new L.LatLng(poi['lat_poi'], poi['long_poi']);
+                    var circle = L.circle(mark, poi['acc_poi'], 
+                        {
+                            'color':"#F20000",
+                            'strokeColor':"#F20000",
+                            'strokeOpacity':1.0,
+                            'strokeWeight':2,
+                            'fillColor':"#F20000",
+                            'fillOpacity':0.7
+                        });
+                    circle.bindPopup('Poi id: '+ poi.poi_id); 
+                    circle.addTo($scope.map);
+                    $scope.pointOfInterest_circles.push(circle);
+                }
+
+                $scope.displayPointOfInterest2 = function(data) {
+                    var locations = [];
+                    for (var poi_num in data['POI']) {
+                        var poi = data['POI'][poi_num];
+                        $scope.addPointOfInterest2(poi);
+                        locations.push(new L.latLng(poi['lat_poi'], poi['long_poi']));
+                    }
+                }
+
 
                 $scope.displayPointOfInterest = function(data) {
                     var locations = [];
@@ -213,6 +251,11 @@
                         $service_path += "&fromlist=1"
                     }
                     else if (position==2){
+                        if ($scope.userlist['selectedOptionforUser']['id']!= $scope.current_user_id)
+                        {
+                            $scope.statusPOIdisplayed=false;
+                            $scope.arePOIdisplayed=false;
+                        }
                         $service_path += '&user_id=' + $scope.userlist['selectedOptionforUser']['id']+'&date=' + $scope.liste_de_date["selectedOptionfordate"]["date"]+"&fromlist=1";
                     }
                     else{
@@ -230,7 +273,6 @@
                 }
 
                 $scope.FindCoordinates = function(){
-                    console.log('je suis ici');
                     $service_path = $scope.service_url + '/dateingivenzone?';
                     for (i=0;i<4;i++)
                     {
@@ -242,6 +284,25 @@
                         .success(function(datezone, status, headers, config) {
                         $scope.liste_de_date_dans_zone=datezone;
                         });
+                }
+
+                $scope.POI_hand=function(){
+                    $scope.arePOIdisplayed= !$scope.arePOIdisplayed;
+                    if ($scope.arePOIdisplayed)
+                    {
+                        $service_path = $scope.service_url + '/POI_given_user'+'?&user_id='+$scope.current_user_id;
+                        $http.get($service_path)
+                        .success(function(POIdata, status, headers, config) {
+                        $scope.displayPointOfInterest2(POIdata); 
+                        });
+
+                    }
+                    else
+                    {
+                        $scope.cleanPointOfInterest();
+
+                    }
+
                 }
 
             })
@@ -294,6 +355,12 @@
     </select>        
     </form>
     <button ng-click="loadPoi(3);">Update</button><br/>
+     
+    <form name="POI">
+    <label for="mySelect">Display POI:</label>
+    <input type="checkbox" ng-model="statusPOIdisplayed" ng-click="POI_hand();">
+    </form>
+
 
     <button ng-click="loadPoi(-1);">Jour Precedent</button>
     <button ng-click="loadPoi(1);">Jour Suivant</button><br/>
