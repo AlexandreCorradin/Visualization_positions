@@ -1,0 +1,29 @@
+runtime: python27
+api_version: 1
+threadsafe: true
+vm: true
+module: location
+handlers:
+# Favicon.  Without this, the browser hits this once per page view.
+- url: /favicon.ico
+  static_files: favicon.ico
+  upload: favicon.ico
+- url: /visu
+  static_files: visu_loc.html
+  upload: visu_loc.html
+- url: /leaflet.polylineDecorator.js
+  static_files: leaflet.polylineDecorator.js
+  upload: leaflet.polylineDecorator.js
+- url: /.*
+  script: engine.application
+builtins:
+- appstats: on
+resources:
+  cpu: 1
+  memory_gb: 1
+  disk_size_gb: 10
+manual_scaling:
+  instances: 1
+libraries:
+- name: numpy
+  version: "latest"

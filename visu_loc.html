@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.11.2/themes/smoothness/jquery-ui.css">
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="http://cdn.jsdelivr.net/jquery.cookie/1.4.1/jquery.cookie.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular.min.js"></script>
+    <script src='https://api.mapbox.com/mapbox.js/v2.2.1/mapbox.js'></script>
+    <script src="leaflet.polylineDecorator.js"></script>
+    <link href='https://api.mapbox.com/mapbox.js/v2.2.1/mapbox.css' rel='stylesheet' />
+
+    <link href='https://api.mapbox.com/mapbox.js/plugins/leaflet-draw/v0.2.2/leaflet.draw.css' rel='stylesheet' />
+    <script src='https://api.mapbox.com/mapbox.js/plugins/leaflet-draw/v0.2.2/leaflet.draw.js'></script>
+    
+    <style type="text/css">
+      html, body, #map { height: 100%; margin: 0; padding: 0;}
+        .leaflet-container {
+            cursor: crosshair !important;
+        }
+    </style>
+</head>
+<body ng-app="kadmin">
+
+
+<script>
+    angular.module("kadmin", [])
+            .controller("Controller", function($scope, $http, $filter, $location) {
+                $scope.initialize = function() {
+                    $scope.service_url = 'http://localhost:8080'
+                    L.mapbox.accessToken = 'pk.eyJ1IjoidGNrYXJvcyIsImEiOiIyYTg2ZGIyNmQ0ODQzM2QyZDZiYWVmZjQ2OTkxMmVkYyJ9.28WWWhUKUuluWdqw52VBMA';
+                    $scope.map = L.mapbox.map('map', 'mapbox.streets').setView([48.85, 2.33], 12);
+                    $scope.featureGroup = L.featureGroup().addTo($scope.map);
+                    $scope.drawControl = new L.Control.Draw({
+                        edit: {
+                          featureGroup: $scope.featureGroup
+                        }
+                      }).addTo($scope.map);
+                    $scope.dessin=[];
+                    $scope.coordlastdessin=0;
+                     $scope.map.on('draw:created', function(e) {
+                        $scope.featureGroup.addLayer(e.layer);
+                        $scope.coordlastdessin=e.layer.getLatLngs();
+                        console.log($scope.coordlastdessin)
+                        $scope.dessin.push(e.layer)
+                        console.log($scope.dessin.length)
+                        if ($scope.dessin.length==2){
+                            $scope.map.removeLayer($scope.dessin[0]);
+                            $scope.dessin.splice(0,1);
+                        }
+                      });
+
+                    $scope.markers=[];
+                    $scope.userlist = {};
+                    $scope.liste_de_date={};
+                    $scope.liste_de_date_dans_zone={};
+                    $scope.loadUser();
+                    $scope.poi_circles = [];
+                    $scope.arrowHeadList=[];
+                    $scope.arrowList=[];
+                    $scope.current_date=0;
+                    $scope.current_user_id=0;
+                    $scope.loadPoi(0);
+                    $scope.legend="";
+                }
+
+
+                $scope.addPoi = function(poi) {
+                    var mark= new L.LatLng(poi['latitude'], poi['longitude']);
+                    $scope.markers.push(mark);
+                    var circle = L.circle(mark, poi['accuracy'], 
+                        {
+                            'weight': 2,
+                            'opacity': 1,
+                            'fillOpacity': 0
+                        });
+                    circle.bindPopup('position_daily_id: '+ poi.position_daily_id +'<br />Poi id: '+ poi.poi_id); 
+                    circle.addTo($scope.map);
+                    $scope.poi_circles.push(circle);
+                }
+
+                $scope.cleanPoi = function() {
+                    for (var circle_num in $scope.poi_circles) {
+                        $scope.map.removeLayer($scope.poi_circles[circle_num]);
+                    }
+                    for (var arrow_num in $scope.arrowList) {
+                        $scope.map.removeLayer($scope.arrowList[arrow_num]);
+                    }
+                    for (var arrowHead_num in $scope.arrowHeadList) {
+                        $scope.map.removeLayer($scope.arrowHeadList[arrowHead_num]);
+                    }
+                    $scope.map.legendControl.removeLegend($scope.legend);
+                    $scope.poi_circles = [];
+                    $scope.markers = [];
+                    $scope.arrowHeadList=[];
+                    $scope.arrowList=[];
+                }
+
+                $scope.displayPoi = function(data) {
+                    var locations = [];
+                    for (var poi_num in data['locations']) {
+                        var poi = data['locations'][poi_num];
+                        $scope.addPoi(poi);
+                        locations.push(new L.latLng(poi['latitude'], poi['longitude']));
+                    }
+                    if (locations.length!=0) {
+                        var bounds = new L.latLngBounds(locations);
+                        $scope.map.fitBounds(bounds);
+                    }
+                    $scope.legend = "<strong>User ID: "+data['user']+"<br /> Date: "+data['datedisp']+"</strong>";
+                    $scope.map.legendControl.addLegend($scope.legend).setPosition("topright");
+                    
+                }
+
+                $scope.addPointOfInterest = function(poi) {
+                    var mark= new L.LatLng(poi['lat_poi'], poi['long_poi']);
+                    var circle = L.circle(mark, poi['acc_poi'], 
+                        {
+                            'color':"#F20000",
+                            'strokeColor':"#F20000",
+                            'strokeOpacity':1.0,
+                            'strokeWeight':2,
+                            'fillColor':"#F20000",
+                            'fillOpacity':0.7
+                        });
+                    circle.bindPopup('Poi id: '+ poi.poi_id); 
+                    circle.addTo($scope.map);
+                    $scope.poi_circles.push(circle);
+                }
+
+                $scope.displayPointOfInterest = function(data) {
+                    var locations = [];
+                    for (var poi_num in data['POI']) {
+                        var poi = data['POI'][poi_num];
+                        $scope.addPointOfInterest(poi);
+                        locations.push(new L.latLng(poi['lat_poi'], poi['long_poi']));
+                    }
+                }
+
+                $scope.addArrow = function(AR) {
+                
+                m1=new L.LatLng(AR['lat1'], AR['long1']);
+                m2=new L.LatLng(AR['lat2'], AR['long2']);
+                var arrow = L.polyline([m1,m2], {});
+                arrow.addTo($scope.map);
+                var arrowHead = L.polylineDecorator(arrow, {
+                    patterns: [
+                        // defines a pattern of 10px-wide dashes, repeated every 20px on the line
+                         {offset:'100%',repeat: 0, symbol: L.Symbol.arrowHead({
+                            polygon: false,
+                            pixelSize: 12,
+                            headAngle: 60,
+                            pathOptions: {
+                                stroke: true,
+                                weight: 3
+                            }})}
+                    ]
+
+                });
+                arrowHead.addTo($scope.map);
+                $scope.arrowHeadList.push(arrowHead);
+                $scope.arrowList.push(arrow);
+
+                }
+
+                $scope.displayArrow = function(data)
+                {
+                    for (var AR_num in data['arrow']) {
+                        var AR = data['arrow'][AR_num];
+                        $scope.addArrow(AR);
+                    }
+
+                }
+
+                $scope.loadUser = function() {
+                    console.log('initialize_users');
+                    $service_path = $scope.service_url + '/users'
+                    $http.get($service_path)
+                        .success(function(UserFromServer, status, headers, config) {
+                        $scope.userlist=UserFromServer;
+                        $scope.loadDate();
+                        });
+                    
+                }
+
+
+                $scope.loadDate = function() {
+                    console.log('new_dates');
+                    uid=$scope.userlist['selectedOptionforUser']['id'];
+                    $service_path = $scope.service_url + '/date' + '?' + '&user_id=' + uid;
+                    $http.get($service_path)
+                        .success(function(dateForGivenUser, status, headers, config) {
+                        $scope.liste_de_date=dateForGivenUser;
+                        });
+                }
+
+                $scope.loadPoi = function(position) {
+                    console.log('load');
+                    $scope.cleanPoi();
+                    $service_path = $scope.service_url + '?';
+                    if (position==0){
+                    if (typeof $scope.user_id != 'undefined' && $scope.user_id != '') {
+                        $service_path += '&user_id=' + $scope.user_id;
+                    }
+                    if (typeof $scope.date != 'undefined' && $scope.date != '') {
+                        $service_path += '&date=' + $scope.date;
+                    }
+                    }
+                    else if (position==3)
+                    {
+                        $service_path += '&user_id=' + $scope.current_user_id;
+                        $service_path += '&date=' + $scope.liste_de_date_dans_zone["selectedOptionfordate"]["date"]
+                        $service_path += "&fromlist=1"
+                    }
+                    else if (position==2){
+                        $service_path += '&user_id=' + $scope.userlist['selectedOptionforUser']['id']+'&date=' + $scope.liste_de_date["selectedOptionfordate"]["date"]+"&fromlist=1";
+                    }
+                    else{
+                        $service_path += '&last_user_id=' + $scope.current_user_id +'&last_date=' + $scope.current_date + '&next='+position;
+                    }
+                    $http.get($service_path)
+                        .success(function(dataFromServer, status, headers, config) {
+                        $scope.displayPointOfInterest(dataFromServer); 
+                        $scope.displayPoi(dataFromServer);
+                        $scope.displayArrow(dataFromServer);
+                        $scope.current_user_id=dataFromServer['user'];
+                        $scope.current_date=dataFromServer['date'];
+                        $scope.data=dataFromServer['OptionAvailable'];
+                        });
+                }
+
+                $scope.FindCoordinates = function(){
+                    console.log('je suis ici');
+                    $service_path = $scope.service_url + '/dateingivenzone?';
+                    for (i=0;i<4;i++)
+                    {
+                        $service_path+='&p'+i.toString()+'lat='+$scope.coordlastdessin[i.toString()]['lat'];
+                        $service_path+='&p'+i.toString()+'long='+$scope.coordlastdessin[i.toString()]['lng'];
+                    }
+                    $service_path+='&user_id='+$scope.current_user_id;
+                    $http.get($service_path)
+                        .success(function(datezone, status, headers, config) {
+                        $scope.liste_de_date_dans_zone=datezone;
+                        });
+                }
+
+            })
+            .directive('confirmClick', function() {
+                return {
+                    link: function (scope, element, attrs) {
+                        // setup a confirmation action on the scope
+                        scope.confirmClick = function(msg) {
+                            // msg can be passed directly to confirmClick('are you sure?') in ng-click
+                            // or through the confirm-click attribute on the <a confirm-click="Are you sure?"></a>
+                            msg = msg || attrs.confirmClick || 'Are you sure?';
+                            // return true/false to continue/stop the ng-click
+                            return confirm(msg);
+                        }
+                    }
+                }
+            })
+            .config(['$locationProvider', function($locationProvider){$locationProvider.html5Mode(true);}])
+            .config(['$compileProvider', function ($compileProvider) {
+                $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|ftp|mailto|tel|file|blob):/);
+            }]);
+</script>
+
+
+<div id="control_div" ng-controller="Controller" data-ng-init="initialize()">
+
+
+      <form name="myForm">
+        <label for="mySelect">Make a choice:</label>
+        <select name="User" id="1"
+          ng-options="option.id for option in userlist.availableOptionsforUser track by option.id"
+          ng-model="userlist.selectedOptionforUser"
+          ng-change="loadDate();">
+        </select>
+        <select name="Date" id="2"
+          ng-options="option.datedisp for option in liste_de_date.availableOptionsForDate track by option.date"
+          ng-model="liste_de_date.selectedOptionfordate">
+        </select>        
+      </form>
+      <button ng-click="loadPoi(2);">Update</button><br/>
+
+
+    <button ng-click="FindCoordinates();">Find trajectories</button>
+    
+    <form name="DateEndroitDef">
+    <label for="mySelect2">Dates Potentielles:</label>
+    <select name="DatesdansZone" id="3"
+      ng-options="option.datedisp for option in liste_de_date_dans_zone.availableOptionsForDate track by option.date"
+      ng-model="liste_de_date_dans_zone.selectedOptionfordate">
+    </select>        
+    </form>
+    <button ng-click="loadPoi(3);">Update</button><br/>
+
+    <button ng-click="loadPoi(-1);">Jour Precedent</button>
+    <button ng-click="loadPoi(1);">Jour Suivant</button><br/>
+
+</div>
+<div id="map"></div>
+</body>
+</html>
